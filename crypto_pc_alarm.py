@@ -20,10 +20,12 @@ class BinanceModernAlarmApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Binance Pro Trading Alarm")
-        self.root.geometry("850x650")
+        self.root.geometry("900x700")
+        self.root.minsize(850, 650) 
         self.root.attributes('-topmost', True)
-        self.root.grid_columnconfigure(0, weight=1)
-        self.root.grid_columnconfigure(1, weight=0)
+        
+        self.root.grid_columnconfigure(0, weight=75) 
+        self.root.grid_columnconfigure(1, weight=25) 
         self.root.grid_rowconfigure(0, weight=1)
 
         self.all_tickers = []
@@ -110,55 +112,57 @@ class BinanceModernAlarmApp:
         left_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(20, 10), pady=20)
         left_frame.grid_rowconfigure(1, weight=1)
+        left_frame.grid_columnconfigure(0, weight=1)
 
-        right_frame = ctk.CTkFrame(self.root, width=200, corner_radius=15)
+        right_frame = ctk.CTkFrame(self.root, corner_radius=15)
         right_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 20), pady=20)
-        right_frame.grid_propagate(False)
+        right_frame.grid_columnconfigure(0, weight=1)
+        right_frame.grid_rowconfigure(1, weight=1)
 
+        # --- 왼쪽: 알람 설정 패널 ---
         settings_frame = ctk.CTkFrame(left_frame, corner_radius=15)
         settings_frame.grid(row=0, column=0, sticky="ew", pady=(0, 20))
+        settings_frame.grid_columnconfigure(1, weight=1) 
         
         ctk.CTkLabel(settings_frame, text="⚡ 새 알람 설정", font=("Roboto", 16, "bold")).grid(row=0, column=0, columnspan=3, pady=(15, 10), padx=20, sticky="w")
 
-        # 👉 [변경됨] 콤보박스를 입력 전용 Entry로 교체하고 이벤트 바인딩
         ctk.CTkLabel(settings_frame, text="코인 검색:").grid(row=1, column=0, pady=8, padx=20, sticky="w")
         self.ticker_var = ctk.StringVar()
-        self.ticker_entry = ctk.CTkEntry(settings_frame, textvariable=self.ticker_var, width=160, placeholder_text="예: BTCUSDT")
-        self.ticker_entry.grid(row=1, column=1, pady=8, sticky="w")
+        self.ticker_entry = ctk.CTkEntry(settings_frame, textvariable=self.ticker_var, placeholder_text="예: BTCUSDT")
+        self.ticker_entry.grid(row=1, column=1, pady=8, sticky="ew")
         self.ticker_entry.bind('<KeyRelease>', self.search_ticker)
-        self.ticker_entry.bind('<FocusOut>', lambda e: self.root.after(200, self.hide_dropdown)) # 포커스 아웃 시 드롭다운 닫기
+        self.ticker_entry.bind('<FocusOut>', lambda e: self.root.after(200, self.hide_dropdown)) 
 
         ctk.CTkButton(settings_frame, text="⭐ 즐겨찾기 등록", width=120, fg_color="#f39c12", hover_color="#d68910", command=self.add_favorite).grid(row=1, column=2, padx=20)
 
         ctk.CTkLabel(settings_frame, text="목표 가격:").grid(row=2, column=0, pady=8, padx=20, sticky="w")
         self.price_var = ctk.DoubleVar(value=0.0)
-        ctk.CTkEntry(settings_frame, textvariable=self.price_var, width=160).grid(row=2, column=1, pady=8, sticky="w")
+        ctk.CTkEntry(settings_frame, textvariable=self.price_var).grid(row=2, column=1, pady=8, sticky="ew")
 
         ctk.CTkLabel(settings_frame, text="알림 조건:").grid(row=3, column=0, pady=8, padx=20, sticky="w")
         self.condition_var = ctk.StringVar(value="이상(>=)")
-        ctk.CTkComboBox(settings_frame, variable=self.condition_var, values=["이상(>=)", "이하(<=)"], width=160).grid(row=3, column=1, pady=8, sticky="w")
+        ctk.CTkComboBox(settings_frame, variable=self.condition_var, values=["이상(>=)", "이하(<=)"]).grid(row=3, column=1, pady=8, sticky="ew")
 
         ctk.CTkLabel(settings_frame, text="소리 종류:").grid(row=4, column=0, pady=8, padx=20, sticky="w")
         self.sound_var = ctk.StringVar(value="경고 사이렌")
-        ctk.CTkComboBox(settings_frame, variable=self.sound_var, values=["기본 비프음", "경고 사이렌", "저음 알림"], width=160).grid(row=4, column=1, pady=8, sticky="w")
+        ctk.CTkComboBox(settings_frame, variable=self.sound_var, values=["기본 비프음", "경고 사이렌", "저음 알림"]).grid(row=4, column=1, pady=8, sticky="ew")
 
         ctk.CTkLabel(settings_frame, text="소리 크기:").grid(row=5, column=0, pady=8, padx=20, sticky="w")
         vol_frame = ctk.CTkFrame(settings_frame, fg_color="transparent")
-        vol_frame.grid(row=5, column=1, columnspan=2, sticky="w")
+        vol_frame.grid(row=5, column=1, columnspan=2, sticky="ew")
         self.volume_var = ctk.IntVar(value=50)
-        ctk.CTkSlider(vol_frame, variable=self.volume_var, from_=0, to=100, width=160).pack(side="left")
-        ctk.CTkButton(vol_frame, text="🔊 듣기", width=60, fg_color="#34495e", hover_color="#2c3e50", command=self.preview_sound).pack(side="left", padx=10)
+        ctk.CTkSlider(vol_frame, variable=self.volume_var, from_=0, to=100).pack(side="left", fill="x", expand=True)
+        ctk.CTkButton(vol_frame, text="🔊 듣기", width=60, fg_color="#34495e", hover_color="#2c3e50", command=self.preview_sound).pack(side="right", padx=(10, 20))
 
         ctk.CTkLabel(settings_frame, text="지속 시간(초):").grid(row=6, column=0, pady=8, padx=20, sticky="w")
         self.duration_var = ctk.IntVar(value=60)
-        ctk.CTkEntry(settings_frame, textvariable=self.duration_var, width=160).grid(row=6, column=1, pady=8, sticky="w")
+        ctk.CTkEntry(settings_frame, textvariable=self.duration_var).grid(row=6, column=1, pady=8, sticky="ew")
 
         ctk.CTkButton(settings_frame, text="알람 리스트에 추가하기", height=40, font=("Roboto", 14, "bold"), command=self.add_alarm).grid(row=7, column=0, columnspan=3, pady=(15, 20), padx=20, sticky="ew")
 
-        # 👉 [신규 추가] 타이핑 시 나타날 플로팅 드롭다운 프레임 (최상단 root 배치)
         self.dropdown_frame = ctk.CTkScrollableFrame(self.root, width=160, height=180, corner_radius=5, fg_color="#1e272e", border_width=1, border_color="#3498db")
 
-        # --- 알람 리스트 패널 ---
+        # --- 왼쪽: 알람 리스트 패널 ---
         list_frame = ctk.CTkFrame(left_frame, corner_radius=15)
         list_frame.grid(row=1, column=0, sticky="nsew")
         list_frame.grid_rowconfigure(1, weight=1)
@@ -166,19 +170,23 @@ class BinanceModernAlarmApp:
 
         ctk.CTkLabel(list_frame, text="📋 감시 중인 타점 목록", font=("Roboto", 16, "bold")).grid(row=0, column=0, pady=15, padx=20, sticky="w")
 
+        # 👉 [핵심 수정 구간] Treeview 스타일링 및 포커스 링(파란색 테두리) 완전 제거
         style = ttk.Style()
         style.theme_use("default")
+        
+        # 내부 구조(layout)에서 테두리 그리는 요소를 통째로 제외
+        style.layout("Treeview", [('Treeview.treearea', {'sticky': 'nswe'})])
+        
         style.configure("Treeview", background="#2b2b2b", foreground="white", fieldbackground="#2b2b2b", rowheight=30, borderwidth=0)
         style.map('Treeview', background=[('selected', '#1f538d')])
         style.configure("Treeview.Heading", background="#333333", foreground="white", relief="flat", font=("Roboto", 11, "bold"))
         style.map("Treeview.Heading", background=[('active', '#444444')])
 
-        tree_scroll = ttk.Scrollbar(list_frame)
-        tree_scroll.grid(row=1, column=1, sticky="ns")
+        tree_scroll = ctk.CTkScrollbar(list_frame, command=self.tree_yview)
+        tree_scroll.grid(row=1, column=1, sticky="ns", pady=(0, 20), padx=(0, 15))
 
         columns = ("ID", "Ticker", "Price", "Cond", "Status")
         self.tree = ttk.Treeview(list_frame, columns=columns, show="headings", yscrollcommand=tree_scroll.set)
-        tree_scroll.config(command=self.tree.yview)
         
         for col in columns:
             self.tree.heading(col, text=col)
@@ -189,31 +197,32 @@ class BinanceModernAlarmApp:
         self.tree.column("Cond", width=80)
         self.tree.column("Status", width=80)
         
-        self.tree.grid(row=1, column=0, sticky="nsew", padx=(20, 0), pady=(0, 20))
+        self.tree.grid(row=1, column=0, sticky="nsew", padx=(20, 5), pady=(0, 20))
         self.tree.tag_configure('triggered', background='#5e2525')
 
         control_frame = ctk.CTkFrame(list_frame, fg_color="transparent")
-        control_frame.grid(row=2, column=0, pady=(0, 20), padx=20, sticky="ew")
+        control_frame.grid(row=2, column=0, columnspan=2, pady=(0, 20), padx=20, sticky="ew")
         
         ctk.CTkButton(control_frame, text="선택 1개 삭제", fg_color="#e74c3c", hover_color="#c0392b", command=self.remove_alarm).pack(side="left", padx=(0, 10))
         ctk.CTkButton(control_frame, text="🚨 울리는 알람 모두 지우기", fg_color="#d35400", hover_color="#a84300", command=self.clear_triggered_alarms).pack(side="left")
         
-        self.status_label = ctk.CTkLabel(control_frame, text="상태: 초기화 중...", text_color="gray")
+        self.status_label = ctk.CTkLabel(control_frame, text="상태: 대기 중", text_color="gray")
         self.status_label.pack(side="right")
 
-        # --- 즐겨찾기 패널 ---
-        ctk.CTkLabel(right_frame, text="⭐ 즐겨찾기", font=("Roboto", 16, "bold")).pack(pady=(15, 10))
+        # --- 오른쪽: 즐겨찾기 패널 ---
+        ctk.CTkLabel(right_frame, text="⭐ 즐겨찾기", font=("Roboto", 16, "bold")).grid(row=0, column=0, pady=(15, 10))
         self.fav_scroll_frame = ctk.CTkScrollableFrame(right_frame, fg_color="transparent")
-        self.fav_scroll_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        self.fav_scroll_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
         self.update_favorite_ui()
 
-    # 👉 [신규 기능] 입력창 아래에 실시간으로 일치하는 티커 목록을 띄워주는 로직
+    def tree_yview(self, *args):
+        self.tree.yview(*args)
+
     def search_ticker(self, event):
         if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return'): return
         typed_val = self.ticker_var.get().upper()
 
-        # 기존 드롭다운 내용 비우기
         for widget in self.dropdown_frame.winfo_children():
             widget.destroy()
 
@@ -221,33 +230,31 @@ class BinanceModernAlarmApp:
             self.dropdown_frame.place_forget()
             return
 
-        # 패턴 일치 검사
         filtered = [t for t in self.all_tickers if typed_val in t]
 
         if not filtered:
             self.dropdown_frame.place_forget()
             return
 
-        # UI 렉 방지를 위해 상위 40개만 노출
         for ticker in filtered[:40]:
             btn = ctk.CTkButton(self.dropdown_frame, text=ticker, fg_color="transparent", 
                                 hover_color="#34495e", anchor="w", text_color="white", height=28,
                                 command=lambda t=ticker: self.select_ticker(t))
             btn.pack(fill="x", pady=1)
 
-        # 검색창 위치를 계산하여 바로 아래에 띄움 (레이아웃 겹침 방지)
         self.root.update_idletasks()
         x = self.ticker_entry.winfo_rootx() - self.root.winfo_rootx()
         y = self.ticker_entry.winfo_rooty() - self.root.winfo_rooty() + self.ticker_entry.winfo_height() + 2
         
+        self.dropdown_frame.configure(width=self.ticker_entry.winfo_width()) 
         self.dropdown_frame.place(x=x, y=y)
-        self.dropdown_frame.lift() # 다른 UI 요소보다 최상단에 배치
+        self.dropdown_frame.lift() 
 
     def select_ticker(self, ticker):
         self.ticker_var.set(ticker)
         self.dropdown_frame.place_forget()
         self.ticker_entry.focus_set()
-        self.ticker_entry.icursor("end") # 커서를 맨 뒤로 이동
+        self.ticker_entry.icursor("end")
 
     def hide_dropdown(self):
         self.dropdown_frame.place_forget()
