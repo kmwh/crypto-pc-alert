@@ -24,8 +24,8 @@ class BinanceModernAlarmApp:
         self.root.minsize(850, 650) 
         self.root.attributes('-topmost', True)
         
-        self.root.grid_columnconfigure(0, weight=75) 
-        self.root.grid_columnconfigure(1, weight=25) 
+        self.root.grid_columnconfigure(0, weight=75, uniform="main") 
+        self.root.grid_columnconfigure(1, weight=25, uniform="main") 
         self.root.grid_rowconfigure(0, weight=1)
 
         self.all_tickers = []
@@ -34,6 +34,9 @@ class BinanceModernAlarmApp:
         
         self.fav_file = "favorite_tickers.json"
         self.alarm_file = "saved_alarms.json"
+        
+        self.check_on = " [ ✔ ] "
+        self.check_off = " [   ] "
         
         pygame.mixer.init()
         self.generate_default_sounds()
@@ -111,6 +114,7 @@ class BinanceModernAlarmApp:
     def setup_ui(self):
         left_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(20, 10), pady=20)
+        left_frame.grid_rowconfigure(0, weight=0)
         left_frame.grid_rowconfigure(1, weight=1)
         left_frame.grid_columnconfigure(0, weight=1)
 
@@ -170,13 +174,9 @@ class BinanceModernAlarmApp:
 
         ctk.CTkLabel(list_frame, text="📋 감시 중인 타점 목록", font=("Roboto", 16, "bold")).grid(row=0, column=0, pady=15, padx=20, sticky="w")
 
-        # 👉 [핵심 수정 구간] Treeview 스타일링 및 포커스 링(파란색 테두리) 완전 제거
         style = ttk.Style()
         style.theme_use("default")
-        
-        # 내부 구조(layout)에서 테두리 그리는 요소를 통째로 제외
         style.layout("Treeview", [('Treeview.treearea', {'sticky': 'nswe'})])
-        
         style.configure("Treeview", background="#2b2b2b", foreground="white", fieldbackground="#2b2b2b", rowheight=30, borderwidth=0)
         style.map('Treeview', background=[('selected', '#1f538d')])
         style.configure("Treeview.Heading", background="#333333", foreground="white", relief="flat", font=("Roboto", 11, "bold"))
@@ -185,28 +185,33 @@ class BinanceModernAlarmApp:
         tree_scroll = ctk.CTkScrollbar(list_frame, command=self.tree_yview)
         tree_scroll.grid(row=1, column=1, sticky="ns", pady=(0, 20), padx=(0, 15))
 
-        columns = ("ID", "Ticker", "Price", "Cond", "Status")
+        columns = ("Select", "Ticker", "Price", "Cond", "Status")
         self.tree = ttk.Treeview(list_frame, columns=columns, show="headings", yscrollcommand=tree_scroll.set)
         
-        for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center")
-        self.tree.column("ID", width=40)
-        self.tree.column("Ticker", width=120)
-        self.tree.column("Price", width=100)
-        self.tree.column("Cond", width=80)
-        self.tree.column("Status", width=80)
+        self.tree.heading("Select", text=self.check_off)
+        self.tree.heading("Ticker", text="Ticker")
+        self.tree.heading("Price", text="Price")
+        self.tree.heading("Cond", text="Cond")
+        self.tree.heading("Status", text="Status")
+        
+        self.tree.column("Select", width=55, anchor="center")
+        self.tree.column("Ticker", width=130, anchor="center")
+        self.tree.column("Price", width=100, anchor="e")
+        self.tree.column("Cond", width=75, anchor="center")
+        self.tree.column("Status", width=75, anchor="center")
         
         self.tree.grid(row=1, column=0, sticky="nsew", padx=(20, 5), pady=(0, 20))
         self.tree.tag_configure('triggered', background='#5e2525')
+        
+        self.tree.bind('<ButtonRelease-1>', self.handle_tree_click)
 
         control_frame = ctk.CTkFrame(list_frame, fg_color="transparent")
         control_frame.grid(row=2, column=0, columnspan=2, pady=(0, 20), padx=20, sticky="ew")
         
-        ctk.CTkButton(control_frame, text="선택 1개 삭제", fg_color="#e74c3c", hover_color="#c0392b", command=self.remove_alarm).pack(side="left", padx=(0, 10))
-        ctk.CTkButton(control_frame, text="🚨 울리는 알람 모두 지우기", fg_color="#d35400", hover_color="#a84300", command=self.clear_triggered_alarms).pack(side="left")
+        ctk.CTkButton(control_frame, text="🗑️ 체크 항목 삭제", width=120, fg_color="#e74c3c", hover_color="#c0392b", command=self.remove_checked_alarms).pack(side="left", padx=(0, 10))
+        ctk.CTkButton(control_frame, text="🚨 울리는 알람 지우기", width=140, fg_color="#d35400", hover_color="#a84300", command=self.clear_triggered_alarms).pack(side="left")
         
-        self.status_label = ctk.CTkLabel(control_frame, text="상태: 대기 중", text_color="gray")
+        self.status_label = ctk.CTkLabel(control_frame, text="상태: 대기 중", text_color="gray", width=200, anchor="e")
         self.status_label.pack(side="right")
 
         # --- 오른쪽: 즐겨찾기 패널 ---
@@ -215,6 +220,64 @@ class BinanceModernAlarmApp:
         self.fav_scroll_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
         self.update_favorite_ui()
+
+    def handle_tree_click(self, event):
+        region = self.tree.identify("region", event.x, event.y)
+        col = self.tree.identify_column(event.x)
+
+        if region == "heading" and col == "#1":
+            self.toggle_all_checks()
+            
+        elif region == "cell" and col == "#1":
+            item = self.tree.identify_row(event.y)
+            if item:
+                current_val = self.tree.set(item, "Select")
+                new_val = self.check_on if current_val == self.check_off else self.check_off
+                self.tree.set(item, "Select", new_val)
+                self.update_header_checkbox_state() 
+
+    def toggle_all_checks(self):
+        items = self.tree.get_children()
+        if not items: return
+        
+        current_header = self.tree.heading("Select")["text"]
+        new_val = self.check_off if current_header == self.check_on else self.check_on
+        
+        self.tree.heading("Select", text=new_val)
+        for item in items:
+            self.tree.set(item, "Select", new_val)
+
+    def update_header_checkbox_state(self):
+        items = self.tree.get_children()
+        if not items:
+            self.tree.heading("Select", text=self.check_off)
+            return
+
+        all_checked = all(self.tree.set(item, "Select") == self.check_on for item in items)
+        self.tree.heading("Select", text=self.check_on if all_checked else self.check_off)
+
+    def remove_checked_alarms(self):
+        items = self.tree.get_children()
+        removed_count = 0
+        
+        for item in items:
+            if self.tree.set(item, "Select") == self.check_on:
+                aid = item
+                if aid in self.alarms:
+                    self.alarms[aid]["info"]["is_active"] = False
+                    if self.alarms[aid]["ws"]:
+                        self.alarms[aid]["ws"].close()
+                    del self.alarms[aid] 
+                self.tree.delete(aid)
+                removed_count += 1
+                
+        if removed_count > 0:
+            self.sync_alarms_to_file()
+            self.status_label.configure(text=f"체크된 알람 {removed_count}개 삭제 완료", text_color="#3498db")
+        else:
+            messagebox.showinfo("알림", "삭제할 항목을 먼저 체크박스 표시에 선택해주세요.")
+            
+        self.update_header_checkbox_state() 
 
     def tree_yview(self, *args):
         self.tree.yview(*args)
@@ -301,12 +364,14 @@ class BinanceModernAlarmApp:
     def restore_alarms(self):
         for aid, info in self.saved_alarms.items():
             status_text = "감시중" if info["is_active"] else "종료됨"
-            self.tree.insert("", "end", iid=aid, values=(aid, info["ticker"].upper(), info["target_price"], info["condition"], status_text))
+            # 👉 [변경됨] 복구 시 삽입 데이터에서 aid(ID) 변수 위치 제거
+            self.tree.insert("", "end", iid=aid, values=(self.check_off, info["ticker"].upper(), info["target_price"], info["condition"], status_text))
             self.alarms[aid] = {"info": info, "ws": None}
             if info["is_active"]:
                 threading.Thread(target=self.run_websocket, args=(aid,), daemon=True).start()
             else:
                 self.tree.item(aid, tags=('triggered',))
+        self.update_header_checkbox_state()
 
     def add_alarm(self):
         ticker = self.ticker_var.get().upper()
@@ -322,7 +387,8 @@ class BinanceModernAlarmApp:
         self.alarm_counter += 1
         aid = str(self.alarm_counter)
 
-        self.tree.insert("", "end", iid=aid, values=(aid, ticker, target_price, condition, "감시중"))
+        # 👉 [변경됨] 새 알람 추가 시 삽입 데이터에서 aid(ID) 변수 위치 제거
+        self.tree.insert("", "end", iid=aid, values=(self.check_off, ticker, target_price, condition, "감시중"))
 
         alarm_info = {
             "ticker": ticker.lower(), "target_price": target_price, "condition": condition,
@@ -332,18 +398,7 @@ class BinanceModernAlarmApp:
         self.sync_alarms_to_file()
         threading.Thread(target=self.run_websocket, args=(aid,), daemon=True).start()
         self.status_label.configure(text=f"{ticker} 감시 시작", text_color="#2ecc71")
-
-    def remove_alarm(self):
-        selected = self.tree.selection()
-        if not selected: return
-        aid = selected[0]
-        if aid in self.alarms:
-            self.alarms[aid]["info"]["is_active"] = False
-            if self.alarms[aid]["ws"]: self.alarms[aid]["ws"].close()
-            del self.alarms[aid] 
-        self.sync_alarms_to_file()
-        self.tree.delete(aid)
-        self.status_label.configure(text="알람 제거 완료", text_color="#3498db")
+        self.update_header_checkbox_state()
 
     def clear_triggered_alarms(self):
         aids_to_remove = [aid for aid, payload in self.alarms.items() if not payload["info"]["is_active"]]
@@ -356,6 +411,7 @@ class BinanceModernAlarmApp:
                 
         self.sync_alarms_to_file()
         self.status_label.configure(text=f"타점 도달 알람 {len(aids_to_remove)}개 일괄 삭제", text_color="#3498db")
+        self.update_header_checkbox_state()
 
     def run_websocket(self, aid):
         info = self.alarms[aid]["info"]
@@ -389,7 +445,7 @@ class BinanceModernAlarmApp:
         def update_ui():
             self.status_label.configure(text=f"🔥 타점 도달! {ticker.upper()} / 현재가: {current_price}", text_color="#e74c3c")
             try:
-                self.tree.set(aid, column="Status", value="종료됨")
+                self.tree.set(aid, "Status", "종료됨")
                 self.tree.item(aid, tags=('triggered',))
             except: pass
         self.root.after(0, update_ui)
@@ -410,6 +466,8 @@ class BinanceModernAlarmApp:
         except: pass
 
 if __name__ == "__main__":
-    root = ctk.CTk()
-    app = BinanceModernAlarmApp(root)
-    root.mainloop()
+    from sys import modules
+    if 'wave' in modules:
+        root = ctk.CTk()
+        app = BinanceModernAlarmApp(root)
+        root.mainloop()
