@@ -135,9 +135,7 @@ class BinanceAdvancedAlarmApp:
         tk.Button(right_frame, text="즐겨찾기에서 삭제", command=self.remove_favorite).pack(pady=5)
         self.update_favorite_listbox()
 
-    # 👉 버그 수정된 함수: 타이핑 캔슬 현상 제거
     def search_ticker(self, event):
-        # 방향키나 엔터 등 특정 키를 누를 때는 필터링 로직을 건너뜀 (포커스 유지용)
         if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return'):
             return
 
@@ -148,8 +146,6 @@ class BinanceAdvancedAlarmApp:
         else:
             filtered = [t for t in self.all_tickers if typed_val in t]
             self.ticker_combo['values'] = filtered
-            
-        # 기존 코드에서 드롭다운을 강제로 열던 event_generate('<Down>') 제거 완료
 
     def add_favorite(self):
         ticker = self.ticker_var.get().upper()
@@ -236,11 +232,12 @@ class BinanceAdvancedAlarmApp:
 
         aid = selected_item[0]
         
+        # 알람 정보 딕셔너리에서 데이터를 완전히 삭제합니다.
         if aid in self.alarms:
             self.alarms[aid]["info"]["is_active"] = False
             if self.alarms[aid]["ws"]:
                 self.alarms[aid]["ws"].close()
-            del self.alarms[aid]
+            del self.alarms[aid] 
             
         self.sync_alarms_to_file()
         self.tree.delete(aid)
@@ -289,11 +286,17 @@ class BinanceAdvancedAlarmApp:
                 pass
             
         self.root.after(0, update_ui)
-        self.play_sound(duration)
+        
+        # 👉 수정 포인트: 소리 재생을 독립된 스레드로 실행하고 알람 ID(aid)를 전달합니다.
+        threading.Thread(target=self.play_sound, args=(aid, duration), daemon=True).start()
 
-    def play_sound(self, duration_seconds):
+    def play_sound(self, aid, duration_seconds):
         end_time = time.time() + duration_seconds
         while time.time() < end_time:
+            # 👉 수정 포인트: 사용자가 UI에서 알람을 삭제하여 self.alarms에서 사라졌는지 매 틱마다 검사합니다.
+            if aid not in self.alarms:
+                break # 삭제되었다면 루프를 즉시 종료하여 소리를 멈춥니다.
+                
             winsound.Beep(2500, 500)
             time.sleep(0.05)
 
