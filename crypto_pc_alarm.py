@@ -13,9 +13,8 @@ import math
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 
-# --- 디자인 기본 설정 ---
-ctk.set_appearance_mode("Dark")  # 다크 모드
-ctk.set_default_color_theme("blue") # 테마 색상 (blue, dark-blue, green)
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
 
 class BinanceModernAlarmApp:
     def __init__(self, root):
@@ -104,34 +103,31 @@ class BinanceModernAlarmApp:
         threading.Thread(target=fetch, daemon=True).start()
 
     def on_tickers_loaded(self):
-        self.ticker_combo.configure(values=self.all_tickers)
         self.status_label.configure(text="시스템 대기 중", text_color="gray")
         self.restore_alarms()
 
     def setup_ui(self):
-        # 1. 왼쪽 메인 프레임
         left_frame = ctk.CTkFrame(self.root, fg_color="transparent")
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(20, 10), pady=20)
         left_frame.grid_rowconfigure(1, weight=1)
 
-        # 2. 오른쪽 즐겨찾기 프레임
         right_frame = ctk.CTkFrame(self.root, width=200, corner_radius=15)
         right_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 20), pady=20)
         right_frame.grid_propagate(False)
 
-        # --- 왼쪽: 알람 설정 패널 ---
         settings_frame = ctk.CTkFrame(left_frame, corner_radius=15)
         settings_frame.grid(row=0, column=0, sticky="ew", pady=(0, 20))
         
         ctk.CTkLabel(settings_frame, text="⚡ 새 알람 설정", font=("Roboto", 16, "bold")).grid(row=0, column=0, columnspan=3, pady=(15, 10), padx=20, sticky="w")
 
-        # 입력 필드들
+        # 👉 [변경됨] 콤보박스를 입력 전용 Entry로 교체하고 이벤트 바인딩
         ctk.CTkLabel(settings_frame, text="코인 검색:").grid(row=1, column=0, pady=8, padx=20, sticky="w")
         self.ticker_var = ctk.StringVar()
-        self.ticker_combo = ctk.CTkComboBox(settings_frame, variable=self.ticker_var, width=160, dropdown_hover_color="#1f538d")
-        self.ticker_combo.grid(row=1, column=1, pady=8, sticky="w")
-        self.ticker_combo.bind('<KeyRelease>', self.search_ticker)
-        
+        self.ticker_entry = ctk.CTkEntry(settings_frame, textvariable=self.ticker_var, width=160, placeholder_text="예: BTCUSDT")
+        self.ticker_entry.grid(row=1, column=1, pady=8, sticky="w")
+        self.ticker_entry.bind('<KeyRelease>', self.search_ticker)
+        self.ticker_entry.bind('<FocusOut>', lambda e: self.root.after(200, self.hide_dropdown)) # 포커스 아웃 시 드롭다운 닫기
+
         ctk.CTkButton(settings_frame, text="⭐ 즐겨찾기 등록", width=120, fg_color="#f39c12", hover_color="#d68910", command=self.add_favorite).grid(row=1, column=2, padx=20)
 
         ctk.CTkLabel(settings_frame, text="목표 가격:").grid(row=2, column=0, pady=8, padx=20, sticky="w")
@@ -159,7 +155,10 @@ class BinanceModernAlarmApp:
 
         ctk.CTkButton(settings_frame, text="알람 리스트에 추가하기", height=40, font=("Roboto", 14, "bold"), command=self.add_alarm).grid(row=7, column=0, columnspan=3, pady=(15, 20), padx=20, sticky="ew")
 
-        # --- 왼쪽: 알람 리스트 패널 (Treeview 커스텀 테마 적용) ---
+        # 👉 [신규 추가] 타이핑 시 나타날 플로팅 드롭다운 프레임 (최상단 root 배치)
+        self.dropdown_frame = ctk.CTkScrollableFrame(self.root, width=160, height=180, corner_radius=5, fg_color="#1e272e", border_width=1, border_color="#3498db")
+
+        # --- 알람 리스트 패널 ---
         list_frame = ctk.CTkFrame(left_frame, corner_radius=15)
         list_frame.grid(row=1, column=0, sticky="nsew")
         list_frame.grid_rowconfigure(1, weight=1)
@@ -167,7 +166,6 @@ class BinanceModernAlarmApp:
 
         ctk.CTkLabel(list_frame, text="📋 감시 중인 타점 목록", font=("Roboto", 16, "bold")).grid(row=0, column=0, pady=15, padx=20, sticky="w")
 
-        # Tkinter 기본 Treeview를 다크모드에 맞게 스타일링
         style = ttk.Style()
         style.theme_use("default")
         style.configure("Treeview", background="#2b2b2b", foreground="white", fieldbackground="#2b2b2b", rowheight=30, borderwidth=0)
@@ -192,11 +190,8 @@ class BinanceModernAlarmApp:
         self.tree.column("Status", width=80)
         
         self.tree.grid(row=1, column=0, sticky="nsew", padx=(20, 0), pady=(0, 20))
-
-        # 트리거된 알람 하이라이트 색상 (다크테마용 버건디/레드)
         self.tree.tag_configure('triggered', background='#5e2525')
 
-        # 하단 제어 버튼들
         control_frame = ctk.CTkFrame(list_frame, fg_color="transparent")
         control_frame.grid(row=2, column=0, pady=(0, 20), padx=20, sticky="ew")
         
@@ -206,30 +201,68 @@ class BinanceModernAlarmApp:
         self.status_label = ctk.CTkLabel(control_frame, text="상태: 초기화 중...", text_color="gray")
         self.status_label.pack(side="right")
 
-        # --- 오른쪽: 모던 즐겨찾기 패널 ---
+        # --- 즐겨찾기 패널 ---
         ctk.CTkLabel(right_frame, text="⭐ 즐겨찾기", font=("Roboto", 16, "bold")).pack(pady=(15, 10))
-        
-        # 투박한 Listbox 대신 스크롤 가능한 커스텀 프레임 사용
         self.fav_scroll_frame = ctk.CTkScrollableFrame(right_frame, fg_color="transparent")
         self.fav_scroll_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         self.update_favorite_ui()
 
+    # 👉 [신규 기능] 입력창 아래에 실시간으로 일치하는 티커 목록을 띄워주는 로직
+    def search_ticker(self, event):
+        if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return'): return
+        typed_val = self.ticker_var.get().upper()
+
+        # 기존 드롭다운 내용 비우기
+        for widget in self.dropdown_frame.winfo_children():
+            widget.destroy()
+
+        if typed_val == '' or not self.all_tickers:
+            self.dropdown_frame.place_forget()
+            return
+
+        # 패턴 일치 검사
+        filtered = [t for t in self.all_tickers if typed_val in t]
+
+        if not filtered:
+            self.dropdown_frame.place_forget()
+            return
+
+        # UI 렉 방지를 위해 상위 40개만 노출
+        for ticker in filtered[:40]:
+            btn = ctk.CTkButton(self.dropdown_frame, text=ticker, fg_color="transparent", 
+                                hover_color="#34495e", anchor="w", text_color="white", height=28,
+                                command=lambda t=ticker: self.select_ticker(t))
+            btn.pack(fill="x", pady=1)
+
+        # 검색창 위치를 계산하여 바로 아래에 띄움 (레이아웃 겹침 방지)
+        self.root.update_idletasks()
+        x = self.ticker_entry.winfo_rootx() - self.root.winfo_rootx()
+        y = self.ticker_entry.winfo_rooty() - self.root.winfo_rooty() + self.ticker_entry.winfo_height() + 2
+        
+        self.dropdown_frame.place(x=x, y=y)
+        self.dropdown_frame.lift() # 다른 UI 요소보다 최상단에 배치
+
+    def select_ticker(self, ticker):
+        self.ticker_var.set(ticker)
+        self.dropdown_frame.place_forget()
+        self.ticker_entry.focus_set()
+        self.ticker_entry.icursor("end") # 커서를 맨 뒤로 이동
+
+    def hide_dropdown(self):
+        self.dropdown_frame.place_forget()
+
     def update_favorite_ui(self):
-        # 기존에 있던 즐겨찾기 위젯들 초기화
         for widget in self.fav_scroll_frame.winfo_children():
             widget.destroy()
             
         for ticker in self.favorites:
-            # 개별 코인 프레임
             item_frame = ctk.CTkFrame(self.fav_scroll_frame, fg_color="#333333", corner_radius=8)
             item_frame.pack(fill="x", pady=2)
             
-            # 클릭 시 티커 자동 입력되도록 버튼화
-            btn = ctk.CTkButton(item_frame, text=ticker, fg_color="transparent", hover_color="#444444", anchor="w", command=lambda t=ticker: self.ticker_var.set(t))
+            btn = ctk.CTkButton(item_frame, text=ticker, fg_color="transparent", hover_color="#444444", anchor="w", command=lambda t=ticker: self.select_ticker(t))
             btn.pack(side="left", fill="x", expand=True, padx=5, pady=2)
             
-            # 우측 삭제 (X) 버튼
             del_btn = ctk.CTkButton(item_frame, text="✕", width=30, fg_color="transparent", hover_color="#c0392b", command=lambda t=ticker: self.remove_favorite(t))
             del_btn.pack(side="right", padx=5, pady=2)
 
@@ -246,12 +279,6 @@ class BinanceModernAlarmApp:
             self.favorites.sort()
             self.save_json(self.fav_file, self.favorites)
             self.update_favorite_ui()
-
-    def search_ticker(self, event):
-        if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return'): return
-        typed_val = self.ticker_var.get().upper()
-        if typed_val == '': self.ticker_combo.configure(values=self.all_tickers)
-        else: self.ticker_combo.configure(values=[t for t in self.all_tickers if typed_val in t])
 
     def preview_sound(self):
         file_map = {"기본 비프음": "beep.wav", "경고 사이렌": "siren.wav", "저음 알림": "low.wav"}
