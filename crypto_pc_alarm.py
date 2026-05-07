@@ -10,7 +10,6 @@ import wave
 import struct
 import math
 
-# 오디오 제어 라이브러리
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 
@@ -28,7 +27,6 @@ class BinanceAdvancedAlarmApp:
         self.fav_file = "favorite_tickers.json"
         self.alarm_file = "saved_alarms.json"
         
-        # 1. Pygame 믹서 초기화 및 기본 사운드 파일 생성
         pygame.mixer.init()
         self.generate_default_sounds()
 
@@ -41,7 +39,6 @@ class BinanceAdvancedAlarmApp:
         self.setup_ui()
         self.load_binance_tickers()
 
-    # --- 파이썬으로 직접 고음질 알람음(WAV) 3종류 생성 ---
     def generate_default_sounds(self):
         sounds = {
             "기본 비프음": ("beep.wav", 1000, "beep"),
@@ -56,18 +53,14 @@ class BinanceAdvancedAlarmApp:
                     f.setframerate(44100)
                     
                     frames = []
-                    # 1초짜리 루프용 사운드 데이터 생성
                     for i in range(44100):
                         if typ == "beep":
-                            # 0.1초 켜지고 0.1초 꺼지는 반복 비프음
                             val = int(32767.0 * math.sin(2.0 * math.pi * freq * i / 44100.0)) if (i // 4410) % 2 == 0 else 0
                         elif typ == "siren":
-                            # 위아래로 웅웅거리는 사이렌 (주파수 변조)
                             mod = math.sin(2.0 * math.pi * 4 * i / 44100.0) 
                             f_current = freq + mod * 300
                             val = int(32767.0 * math.sin(2.0 * math.pi * f_current * i / 44100.0))
                         else:
-                            # 묵직하게 깔리는 펄스음
                             val = int(32767.0 * math.sin(2.0 * math.pi * freq * i / 44100.0))
                         frames.append(struct.pack('<h', val))
                     f.writeframesraw(b''.join(frames))
@@ -134,7 +127,6 @@ class BinanceAdvancedAlarmApp:
         self.condition_var = tk.StringVar(value="이상(>=)")
         ttk.Combobox(frame_settings, textvariable=self.condition_var, values=["이상(>=)", "이하(<=)"], state="readonly", width=15).grid(row=2, column=1, pady=5, sticky="w")
 
-        # --- 사운드 제어 UI 추가 ---
         tk.Label(frame_settings, text="소리 종류:").grid(row=3, column=0, pady=5, sticky="w")
         self.sound_var = tk.StringVar(value="경고 사이렌")
         ttk.Combobox(frame_settings, textvariable=self.sound_var, values=["기본 비프음", "경고 사이렌", "저음 알림"], state="readonly", width=15).grid(row=3, column=1, pady=5, sticky="w")
@@ -153,7 +145,6 @@ class BinanceAdvancedAlarmApp:
 
         tk.Button(frame_settings, text="알람 리스트에 등록", command=self.add_alarm, bg="lightblue").grid(row=6, column=0, columnspan=3, pady=10, ipadx=50)
 
-        # --- 리스트 영역 ---
         frame_list = tk.LabelFrame(left_frame, text="작동 중인 알람 목록", padx=10, pady=10)
         frame_list.pack(fill="both", expand=True)
 
@@ -172,7 +163,11 @@ class BinanceAdvancedAlarmApp:
         self.tree.column("Status", width=60, anchor="center")
         self.tree.pack(fill="both", expand=True)
 
-        tk.Button(frame_list, text="선택한 알람 삭제 (알람음 강제 정지)", command=self.remove_alarm, bg="salmon", fg="white").pack(pady=5)
+        # 👉 버튼 패널 구성 (개별 삭제 / 일괄 삭제)
+        btn_frame = tk.Frame(frame_list)
+        btn_frame.pack(pady=5)
+        tk.Button(btn_frame, text="선택한 알람 1개 삭제", command=self.remove_alarm, bg="salmon", fg="white").pack(side="left", padx=5)
+        tk.Button(btn_frame, text="울리는 알람 모두 지우기 🔇", command=self.clear_triggered_alarms, bg="orange", fg="white", font=("", 9, "bold")).pack(side="left", padx=5)
 
         self.status_label = tk.Label(left_frame, text="상태: 초기화 중...", fg="blue")
         self.status_label.pack(pady=5)
@@ -183,17 +178,13 @@ class BinanceAdvancedAlarmApp:
         tk.Button(right_frame, text="즐겨찾기 삭제", command=self.remove_favorite).pack(pady=5)
         self.update_favorite_listbox()
 
-    # --- 미리듣기 기능 ---
     def preview_sound(self):
         file_map = {"기본 비프음": "beep.wav", "경고 사이렌": "siren.wav", "저음 알림": "low.wav"}
         sound_file = file_map.get(self.sound_var.get(), "beep.wav")
-        
-        # 설정된 볼륨(0~100)을 Pygame 범위(0.0~1.0)로 변환
         volume = self.volume_var.get() / 100.0 
-        
         sound = pygame.mixer.Sound(sound_file)
         sound.set_volume(volume)
-        sound.play() # 1회 재생
+        sound.play() 
 
     def search_ticker(self, event):
         if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return'):
@@ -267,7 +258,6 @@ class BinanceAdvancedAlarmApp:
 
         self.tree.insert("", "end", iid=aid, values=(aid, ticker, target_price, condition, "감시중"))
 
-        # 알람 생성 시 해당 시점의 '소리 종류'와 '볼륨'을 각각 독립적으로 저장
         alarm_info = {
             "ticker": ticker.lower(),
             "target_price": target_price,
@@ -299,6 +289,29 @@ class BinanceAdvancedAlarmApp:
         self.sync_alarms_to_file()
         self.tree.delete(aid)
         self.status_label.config(text=f"알람 제거 완료 (알람음 정지됨)", fg="blue")
+
+    # 👉 신규 추가된 함수: 트리거된 알람(소리가 나는 중인 알람) 모두 지우기
+    def clear_triggered_alarms(self):
+        aids_to_remove = []
+        
+        # is_active가 False인(이미 가격 도달을 달성한) 모든 알람의 ID를 수집합니다.
+        for aid, payload in self.alarms.items():
+            if not payload["info"]["is_active"]:
+                aids_to_remove.append(aid)
+                
+        if not aids_to_remove:
+            return messagebox.showinfo("알림", "현재 타점에 도달하여 울리고 있는 알람이 없습니다.")
+            
+        # 수집된 ID들을 딕셔너리와 UI 리스트에서 순차적으로 제거합니다.
+        for aid in aids_to_remove:
+            del self.alarms[aid] # 이 순간 스레드에서 돌고 있던 각각의 사운드 루프가 즉각 차단됩니다.
+            try:
+                self.tree.delete(aid)
+            except tk.TclError:
+                pass
+                
+        self.sync_alarms_to_file()
+        self.status_label.config(text=f"타점 도달 알람 {len(aids_to_remove)}개 일괄 삭제 (소리 강제 종료)", fg="blue")
 
     def run_websocket(self, aid):
         info = self.alarms[aid]["info"]
@@ -344,7 +357,6 @@ class BinanceAdvancedAlarmApp:
         threading.Thread(target=self.play_sound, args=(aid, info), daemon=True).start()
 
     def play_sound(self, aid, info):
-        # 개별 알람에 설정된 소리 종류와 볼륨 불러오기
         file_map = {"기본 비프음": "beep.wav", "경고 사이렌": "siren.wav", "저음 알림": "low.wav"}
         sound_file = file_map.get(info.get("sound_type", "경고 사이렌"), "siren.wav")
         volume = info.get("volume", 50) / 100.0
@@ -352,16 +364,15 @@ class BinanceAdvancedAlarmApp:
         try:
             sound = pygame.mixer.Sound(sound_file)
             sound.set_volume(volume)
-            channel = sound.play(loops=-1) # 무한 반복 재생 모드
+            channel = sound.play(loops=-1) 
             
             end_time = time.time() + info.get("duration", 60)
             while time.time() < end_time:
-                # 사용자가 리스트에서 알람을 삭제하면 루프 탈출
                 if aid not in self.alarms:
                     break 
                 time.sleep(0.1)
                 
-            channel.stop() # 소리 강제 종료
+            channel.stop() 
         except Exception as e:
             print(f"사운드 재생 오류: {e}")
 
