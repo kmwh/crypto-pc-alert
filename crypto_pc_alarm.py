@@ -21,8 +21,14 @@ class BinanceModernAlarmApp:
         self.root = root
         self.root.title("Binance Pro Trading Alarm")
         self.root.geometry("900x700")
-        self.root.minsize(850, 650) 
+        self.root.minsize(850, 650)
         self.root.attributes('-topmost', True)
+
+        # 👉 [여기 추가] 창 상단 및 작업 표시줄 아이콘 변경
+        try:
+            self.root.iconbitmap("icon.ico")
+        except Exception:
+            pass # 아이콘 파일이 없을 경우 프로그램이 튕기는 것을 방지
         
         self.root.grid_columnconfigure(0, weight=75, uniform="main") 
         self.root.grid_columnconfigure(1, weight=25, uniform="main") 
